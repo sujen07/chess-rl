@@ -1,0 +1,8 @@
+pygame
+PyYAML
+numpy
+python-chess
+torch
+zstandard
+certifi
+matplotlib

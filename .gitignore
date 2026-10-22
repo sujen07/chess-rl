@@ -1,0 +1,17 @@
+*.pyc
+__pycache__/
+.venv/
+
+*.log
+*.json
+*.csv
+*.pt
+*.npz
+
+data/
+
+.DS_Store
+# Lichess bot: upstream checkout, token and game records
+lichess_bot/lichess-bot/
+lichess_bot/.token
+lichess_bot/game_records/

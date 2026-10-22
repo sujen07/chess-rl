@@ -1,0 +1,140 @@
+model:
+  # Self-play is bound by Python MCTS on the CPU, so a wider/deeper net costs
+  # little extra wall-clock and gives the supervised warm start more capacity.
+  channels: 128
+  num_blocks: 10
+  value_head_channels: 32
+  value_hidden: 256
+
+optimizer:
+  # RL fine-tunes the supervised warm start, so stay below the SL learning rate.
+  lr: 0.0002
+  min_lr: 0.00005
+  warmup_games: 2000
+  weight_decay: 0.0001
+
+replay:
+  buffer_capacity: 250000
+  train_batch_size: 512
+  min_buffer_size: 5000
+  replay_path: checkpoints_v4/replay_buffer.pt
+  replay_save_every: 50
+
+checkpoint:
+  checkpoint_dir: checkpoints_v4
+  checkpoint_every: 10
+  checkpoint_keep: 10
+  # Resumes automatically once the run has written a checkpoint.
+  resume: checkpoints_v4/latest.pt
+  model_out: chess_rl_model_v4.pt
+
+runtime:
+  seed: 2026
+  disable_amp: false
+
+common:
+  episodes: 500000
+  games_per_batch: 16
+  num_simulations: 200
+  c_puct: 1.41
+  temp_threshold: 30
+  dirichlet_alpha: 0.3
+  dirichlet_eps: 0.25
+  epochs_per_batch: 2
+  value_coef: 1.0
+  max_moves: 240
+  avoid_training_repetitions: true
+  # A clearly losing side may still learn to claim a repetition draw.
+  repetition_value_threshold: -0.25
+
+# Settings used only by train.py.
+single_process:
+  no_visualize: true
+  move_delay: 0.1
+
+# Settings used only by multiprocess_train.py / multiprocess_train_v2.py.
+multiprocess:
+  # Leave null to use max(1, cpu_count() - 2).
+  num_workers: null
+  # Midgame self-play starts (from prepare_midgame_fens.py).
+  # midgame_fens: data/midgame_fens.pt
+  # midgame_prob: 0.7
+  midgame_fens: null
+  midgame_prob: 0.0
+  # Weights from train_supervised.py; used only when `resume` does not exist yet.
+  init_model: chess_sl_model.pt
+
+# Settings used only by train_supervised.py (does not merge `common`).
+supervised:
+  # Packed shards from prepare_lichess_dataset.py.
+  data_dir: data/lichess_sl
+  # Null loads every shard; ~350 bytes of RAM per position.
+  max_positions: null
+  num_epochs: 4
+  val_positions: 100000
+  checkpoint_dir: checkpoints_sl
+  checkpoint_keep: 5
+  resume: null
+  model_out: chess_sl_model.pt
+  plot_path: checkpoints_sl/loss_curve.png
+  train_batch_size: 1024
+  value_coef: 1.0
+  lr: 0.001
+  min_lr: 0.00001
+  warmup_steps: 2000
+  weight_decay: 0.0001
+
+# Settings used only by multiprocess_train_v3.py (does not merge `common`).
+# The shared model/optimizer/replay/checkpoint/runtime sections above are
+# merged first, so every v2-specific value there is overridden here.
+selfplay_v3:
+  # Optimizer: a gentle fine-tune of the supervised warm start.
+  lr: 0.0001
+  min_lr: 0.00002
+  warmup_games: 1000
+  episodes: 100000
+
+  # Self-play. num_workers null = one per CPU core; the coordinator mostly
+  # waits on the GPU, and workers idle while their batch is being evaluated.
+  num_workers: null
+  games_per_worker: 48
+  # Playout cap randomization: full searches become training samples.
+  full_simulations: 400
+  fast_simulations: 80
+  full_search_prob: 0.25
+  c_puct: 1.41
+  fpu_reduction: 0.25
+  temp_threshold: 30
+  dirichlet_alpha: 0.3
+  dirichlet_eps: 0.25
+  max_moves: 240
+  tree_reuse: true
+  resign_threshold: -0.9
+  resign_consecutive: 3
+  resign_min_ply: 20
+  resign_playthrough: 0.1
+  avoid_training_repetitions: true
+  repetition_value_threshold: -0.25
+  midgame_fens: null
+  midgame_prob: 0.0
+
+  # Training.
+  q_weight: 0.5
+  value_coef: 1.0
+  train_batch_size: 1024
+  sample_reuse: 4.0
+  buffer_capacity: 300000
+  min_buffer_size: 20000
+  sl_mix_fraction: 0.3
+  sl_data_dir: data/lichess_sl
+  sl_mix_positions: 3000000
+
+  # Bookkeeping (games, not rounds).
+  checkpoint_dir: checkpoints_v5
+  checkpoint_every: 500
+  checkpoint_keep: 20
+  replay_save_every: 2000
+  replay_path: checkpoints_v5/replay_buffer.npz
+  resume: checkpoints_v5/latest.pt
+  init_model: chess_sl_model.pt
+  model_out: chess_rl_model_v5.pt
