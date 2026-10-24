@@ -43,7 +43,7 @@ from fast_mcts import (
     select_edge,
     training_repetition_exclusions,
 )
-from model import PolicyNetwork
+from model import PolicyNetwork, checkpoint_model_config
 from multiprocess_train_v2 import load_midgame_fens
 from packed_replay import PackedReplay, soft_policy_loss
 from train import load_checkpoint, save_checkpoint
@@ -522,7 +522,8 @@ def train(args, policy, optimizer, scaler, device, start_games, results_window):
                 resign_checks.append(game["false_resign"])
 
             lr = apply_lr_schedule(
-                optimizer, args.lr, args.min_lr, args.warmup_games, args.episodes, games_done
+                optimizer, args.lr, args.min_lr, args.warmup_games,
+                args.episodes - args.lr_schedule_start, games_done - args.lr_schedule_start,
             )
             if len(replay) >= args.min_buffer_size:
                 train_credit += n_new * args.sample_reuse
@@ -629,6 +630,8 @@ def parse_args():
     add("--lr", type=float, default=1e-4)
     add("--min-lr", type=float, default=2e-5)
     add("--warmup-games", type=int, default=1000)
+    add("--lr-schedule-start", type=int, default=0,
+        help="games at which warmup + cosine begin; set when extending a finished run")
     add("--weight-decay", type=float, default=1e-4)
     # Self-play.
     add("--episodes", type=int, default=100_000)
@@ -706,10 +709,17 @@ def main():
     args = parse_args()
     seed_everything(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    policy = PolicyNetwork(
+    model_config = dict(
         channels=args.channels, num_blocks=args.num_blocks,
         value_head_channels=args.value_head_channels, value_hidden=args.value_hidden,
     )
+    # An existing checkpoint fixes the architecture (SE, attention, ...), so
+    # build from its stored config rather than the CLI/YAML size flags.
+    model_source = args.resume if args.resume and Path(args.resume).is_file() else args.init_model
+    if model_source and Path(model_source).is_file():
+        model_config = checkpoint_model_config(model_source)
+        print(f"Model config from {model_source}: {model_config}")
+    policy = PolicyNetwork(**model_config)
     optimizer = torch.optim.AdamW(policy.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scaler = make_grad_scaler(not args.disable_amp and device.type == "cuda")
 
@@ -718,7 +728,8 @@ def main():
         meta = load_checkpoint(args.resume, policy, optimizer, device=device, scaler=scaler)
         start_games = meta["games_done"]
         results_window = meta["results_window"]
-        if meta.get("replay_path"):
+        # An explicit --replay-path wins: stored paths go stale when the repo moves.
+        if meta.get("replay_path") and not args.replay_path:
             args.replay_path = meta["replay_path"]
         print(f"Resumed from {args.resume} at {start_games} games")
     elif args.init_model:

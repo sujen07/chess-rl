@@ -8,7 +8,7 @@ from pathlib import Path
 import chess
 import numpy as np
 import torch
-from model import MODEL_VERSION, PolicyNetwork
+from model import MODEL_VERSION, PolicyNetwork, full_model_config
 from chess_environment import *
 from mcts import (
     mcts_search_batch,
@@ -121,7 +121,7 @@ def load_checkpoint(path, policy, optimizer=None, device=None, scaler=None):
         raise ValueError(
             "Checkpoint is not compatible with Chess RL v2; start fresh or use a v2 checkpoint"
         )
-    if ckpt.get("model_config") != policy.config:
+    if full_model_config(ckpt.get("model_config") or {}) != policy.config:
         raise ValueError(
             f"Checkpoint model config {ckpt.get('model_config')} does not match "
             f"requested config {policy.config}"

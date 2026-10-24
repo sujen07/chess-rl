@@ -24,7 +24,7 @@ from mcts import (
     policy_target,
     training_repetition_exclusions,
 )
-from model import PolicyNetwork
+from model import PolicyNetwork, checkpoint_model_config
 from replay_buffer import ReplayBuffer
 from sl_dataset import PackedDataset, concat_packed, encode_game
 from train import load_checkpoint
@@ -216,6 +216,26 @@ class ChessRLV2Tests(unittest.TestCase):
             torch.save({"policy_state_dict": policy.state_dict()}, path)
             with self.assertRaisesRegex(ValueError, "not compatible"):
                 load_checkpoint(path, policy)
+
+    def test_checkpoint_without_newer_model_options_loads(self):
+        policy = PolicyNetwork(
+            channels=16, num_blocks=1, value_head_channels=4, value_hidden=16
+        )
+        legacy_config = {
+            "channels": 16, "num_blocks": 1, "value_head_channels": 4, "value_hidden": 16,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "old_config.pt"
+            torch.save(
+                {
+                    **policy.checkpoint_metadata(),
+                    "model_config": legacy_config,
+                    "policy_state_dict": policy.state_dict(),
+                },
+                path,
+            )
+            self.assertEqual(checkpoint_model_config(path), policy.config)
+            load_checkpoint(path, policy)
 
     def test_replay_round_trip(self):
         board = chess.Board()

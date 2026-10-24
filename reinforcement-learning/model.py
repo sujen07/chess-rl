@@ -29,6 +29,17 @@ DEFAULT_MODEL_CONFIG = {
 ARCHITECTURES = ("resnet", "transformer")
 
 
+def full_model_config(config):
+    """Fill options added after a checkpoint was written with their defaults."""
+    return {**DEFAULT_MODEL_CONFIG, **config}
+
+
+def checkpoint_model_config(path):
+    """Full model config stored in a checkpoint or weights file."""
+    ckpt = torch.load(path, map_location="cpu", weights_only=False)
+    return full_model_config(ckpt["model_config"])
+
+
 def _group_norm(channels, max_groups=16):
     """GroupNorm with a group count that divides `channels`.
 
