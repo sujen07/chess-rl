@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from model import PolicyNetwork
+from model import ARCHITECTURES, PolicyNetwork
 from sl_dataset import PackedDataset, packed_loss
 from train import load_checkpoint, save_checkpoint
 from training_config import DEFAULT_CONFIG_PATH, load_training_config
@@ -261,6 +261,21 @@ def parse_args():
     parser.add_argument("--num-blocks", type=int, default=8)
     parser.add_argument("--value-head-channels", type=int, default=32)
     parser.add_argument("--value-hidden", type=int, default=256)
+    parser.add_argument("--arch", choices=ARCHITECTURES, default="resnet")
+    parser.add_argument(
+        "--se-ratio", type=int, default=0,
+        help="Squeeze-and-excitation reduction ratio (0 disables SE)",
+    )
+    parser.add_argument(
+        "--attention-layers", type=int, default=0,
+        help="Transformer layers over the 64 squares (after the residual blocks)",
+    )
+    parser.add_argument("--attention-heads", type=int, default=4)
+    parser.add_argument(
+        "--attention-bias", action="store_true",
+        help="Learned per-head 64x64 attention logit bias",
+    )
+    parser.add_argument("--ffn-mult", type=int, default=2)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--disable-amp", action="store_true")
     parser.add_argument("--log-every", type=int, default=500)
@@ -323,7 +338,14 @@ def main():
         num_blocks=args.num_blocks,
         value_head_channels=args.value_head_channels,
         value_hidden=args.value_hidden,
+        arch=args.arch,
+        se_ratio=args.se_ratio,
+        attention_layers=args.attention_layers,
+        attention_heads=args.attention_heads,
+        attention_bias=args.attention_bias,
+        ffn_mult=args.ffn_mult,
     )
+    print(f"Model: {policy.config} | {sum(p.numel() for p in policy.parameters()):,} params")
     optimizer = torch.optim.AdamW(
         policy.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
