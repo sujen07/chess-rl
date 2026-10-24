@@ -88,10 +88,13 @@ supervised:
 # The shared model/optimizer/replay/checkpoint/runtime sections above are
 # merged first, so every v2-specific value there is overridden here.
 selfplay_v3:
-  # Optimizer: a gentle fine-tune of the supervised warm start.
+  # v7 is a fresh run from the SE supervised net (128x10, se_ratio 4), so it
+  # uses v5's warm-start schedule. (v6 extended v5 with 5e-5 / 1e-5 from 100k
+  # games; a 1.5e-4 peak there regressed to -122 Elo vs v5.)
   lr: 0.0001
   min_lr: 0.00002
   warmup_games: 1000
+  lr_schedule_start: 0
   episodes: 100000
 
   # Self-play. num_workers null = one per CPU core; the coordinator mostly
@@ -99,7 +102,8 @@ selfplay_v3:
   num_workers: null
   games_per_worker: 48
   # Playout cap randomization: full searches become training samples.
-  full_simulations: 400
+  # Stronger search targets (v5: 400).
+  full_simulations: 600
   fast_simulations: 80
   full_search_prob: 0.25
   c_puct: 1.41
@@ -125,16 +129,19 @@ selfplay_v3:
   sample_reuse: 4.0
   buffer_capacity: 300000
   min_buffer_size: 20000
+  # A fresh warm start leans on human moves early, as v5 did (v6: 0.2).
   sl_mix_fraction: 0.3
   sl_data_dir: data/lichess_sl
   sl_mix_positions: 3000000
 
   # Bookkeeping (games, not rounds).
-  checkpoint_dir: checkpoints_v5
+  # The architecture (incl. SE) comes from init_model's stored config; the
+  # model: size keys above are ignored once it exists.
+  checkpoint_dir: checkpoints_v7_se
   checkpoint_every: 500
   checkpoint_keep: 20
   replay_save_every: 2000
-  replay_path: checkpoints_v5/replay_buffer.npz
-  resume: checkpoints_v5/latest.pt
-  init_model: chess_sl_model.pt
-  model_out: chess_rl_model_v5.pt
+  replay_path: checkpoints_v7_se/replay_buffer.npz
+  resume: checkpoints_v7_se/latest.pt
+  init_model: chess_sl_model_se.pt
+  model_out: chess_rl_model_v7_se.pt
