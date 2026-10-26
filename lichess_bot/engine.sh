@@ -5,4 +5,4 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 RL_DIR="$REPO/reinforcement-learning"
 exec "$REPO/.venv/bin/python" "$RL_DIR/uci_engine.py" \
-    --model-path "${MODEL_PATH:-$RL_DIR/chess_rl_model_v5.pt}"
+    --model-path "${MODEL_PATH:-$RL_DIR/chess_rl_model_v7_se.pt}"
