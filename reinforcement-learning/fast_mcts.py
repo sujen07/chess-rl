@@ -88,7 +88,7 @@ class Node:
     __slots__ = (
         "board", "parent", "edge", "history", "moves", "indices",
         "pieces", "aux", "priors", "raw_priors", "child_n", "child_w",
-        "children", "visits", "value_sum", "terminal",
+        "children", "visits", "value_sum", "terminal", "net_value",
     )
 
     def __init__(self, board, history, parent=None, edge=-1):
@@ -102,6 +102,7 @@ class Node:
         self.value_sum = 0.0
         self.priors = None
         self.raw_priors = None
+        self.net_value = None
         self.children = {}
         if self.terminal is None:
             self.indices = move_indices(board, self.moves)
@@ -201,7 +202,8 @@ def evaluate_leaves(evaluator, leaves):
         priors = np.exp(logits - logits.max())
         priors /= priors.sum()
         leaf.priors = leaf.raw_priors = priors
-        backpropagate(leaf, float(values[i]))
+        leaf.net_value = float(values[i])
+        backpropagate(leaf, leaf.net_value)
 
 
 def add_dirichlet_noise(root, alpha, eps, rng=np.random):
@@ -294,6 +296,37 @@ def visit_distribution(root, temperature=1.0, excluded_edges=()):
 def policy_target(root, excluded_edges=()):
     """(policy indices int16, probabilities float32) from temperature-1 visits."""
     edges, probs = visit_distribution(root, 1.0, excluded_edges)
+    return root.indices[edges].astype(np.int16), probs.astype(np.float32)
+
+
+def completed_q_target(root, excluded_edges=(), c_visit=50.0, c_scale=0.1):
+    """(policy indices int16, probabilities float32) from completed Q-values.
+
+    Gumbel MuZero's improved policy: softmax(log raw prior + sigma(completed Q)).
+    Visited moves use their search Q; unvisited moves use the prior-weighted
+    "mixed" value, so every legal move keeps some mass and root noise never
+    reaches the target. Q in [-1, 1] maps to [0, 1] on a fixed scale (no
+    min-max rescale, which would blow tiny Q gaps up to a one-hot target).
+    """
+    edges = [e for e in range(len(root.moves)) if e not in excluded_edges]
+    if not edges:
+        edges = list(range(len(root.moves)))
+    n = root.child_n
+    visited = n > 0
+    q = -root.child_w / np.maximum(n, 1.0)  # child_w is from the child's side
+    prior = root.raw_priors
+    total = n.sum()
+    if visited.any():
+        weighted_q = (prior[visited] * q[visited]).sum() / max(prior[visited].sum(), 1e-12)
+        mixed = (root.net_value + total * weighted_q) / (total + 1.0)
+    else:
+        mixed = root.net_value
+    completed = np.where(visited, q, mixed)
+    sigma = (c_visit + n.max()) * c_scale * (completed + 1.0) / 2.0
+    logits = np.log(np.maximum(prior, 1e-12)) + sigma
+    logits = logits[edges]
+    probs = np.exp(logits - logits.max())
+    probs /= probs.sum()
     return root.indices[edges].astype(np.int16), probs.astype(np.float32)
 
 

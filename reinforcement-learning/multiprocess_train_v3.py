@@ -14,6 +14,9 @@ Changes from v2:
     anchor the policy against drift.
   * Packed replay ring buffer decoded on the GPU; training is driven by a
     sample-reuse ratio instead of a fixed number of steps per round.
+  * policy_target: completed_q (v8) trains on Gumbel MuZero's improved policy
+    from completed Q-values instead of visit counts; --config-section picks
+    the YAML section (selfplay_v3, selfplay_v8, ...).
 """
 
 import argparse
@@ -35,6 +38,7 @@ from fast_mcts import (
     Node,
     add_dirichlet_noise,
     advance,
+    completed_q_target,
     evaluate_leaves,
     evaluate_packed,
     gather_leaf,
@@ -161,7 +165,12 @@ def self_play_loop(evaluator, settings, claim_game, emit_game, stop_event, rng):
             if s["avoid_training_repetitions"] else set()
         )
         if game.full:
-            pi_idx, pi_prob = policy_target(root, excluded)
+            if s["policy_target"] == "completed_q":
+                pi_idx, pi_prob = completed_q_target(
+                    root, excluded, s["gumbel_c_visit"], s["gumbel_c_scale"]
+                )
+            else:
+                pi_idx, pi_prob = policy_target(root, excluded)
             game.samples.append(
                 (root.pieces, root.aux, root.indices.astype(np.int16),
                  pi_idx, pi_prob, q, mover)
@@ -438,7 +447,7 @@ def train(args, policy, optimizer, scaler, device, start_games, results_window):
             "resign_threshold", "resign_consecutive", "resign_min_ply",
             "resign_playthrough", "avoid_training_repetitions",
             "repetition_value_threshold", "q_weight", "midgame_fens",
-            "midgame_prob",
+            "midgame_prob", "policy_target", "gumbel_c_visit", "gumbel_c_scale",
         )
     }
 
@@ -616,6 +625,10 @@ def train(args, policy, optimizer, scaler, device, start_games, results_window):
 def parse_args():
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument("--config", type=str, default=str(DEFAULT_CONFIG_PATH))
+    config_parser.add_argument(
+        "--config-section", type=str, default="selfplay_v3",
+        help="YAML section to read defaults from (e.g. selfplay_v8)",
+    )
     config_args, _ = config_parser.parse_known_args()
 
     p = argparse.ArgumentParser(
@@ -658,6 +671,10 @@ def parse_args():
     add("--inference-max-wait-ms", type=float, default=2.0)
     # Training.
     add("--q-weight", type=float, default=0.5)
+    add("--policy-target", choices=("visits", "completed_q"), default="visits",
+        help="visits: temperature-1 visit counts; completed_q: Gumbel MuZero improved policy")
+    add("--gumbel-c-visit", type=float, default=50.0)
+    add("--gumbel-c-scale", type=float, default=0.1)
     add("--value-coef", type=float, default=1.0)
     add("--train-batch-size", type=int, default=1024)
     add("--sample-reuse", type=float, default=4.0,
@@ -682,13 +699,16 @@ def parse_args():
     add("--disable-amp", action="store_true")
 
     try:
-        defaults = load_training_config(config_args.config, "selfplay_v3", include_common=False)
+        defaults = load_training_config(
+            config_args.config, config_args.config_section, include_common=False,
+            require_section=True,
+        )
     except (FileNotFoundError, OSError, ValueError) as exc:
         p.error(str(exc))
     valid = {a.dest for a in p._actions}
     unknown = sorted(set(defaults) - valid)
     if unknown:
-        p.error(f"unknown selfplay_v3 config keys: {', '.join(unknown)}")
+        p.error(f"unknown {config_args.config_section} config keys: {', '.join(unknown)}")
     p.set_defaults(**defaults)
     args = p.parse_args()
 

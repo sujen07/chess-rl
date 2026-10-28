@@ -6,7 +6,7 @@ import yaml
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "training_config.yaml"
 
 
-def load_training_config(path, section, include_common=True):
+def load_training_config(path, section, include_common=True, require_section=False):
     """Load and merge the common and entry-point-specific YAML settings."""
     config_path = Path(path)
     if not config_path.is_file():
@@ -18,6 +18,8 @@ def load_training_config(path, section, include_common=True):
     if not isinstance(config, dict):
         raise ValueError("Training config must contain a YAML mapping")
 
+    if require_section and section not in config:
+        raise ValueError(f"Training config has no '{section}' section: {config_path}")
     common = config.get("common", {}) if include_common else {}
     specific = config.get(section, {})
     if not isinstance(common, dict) or not isinstance(specific, dict):
