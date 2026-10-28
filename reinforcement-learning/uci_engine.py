@@ -42,6 +42,7 @@ OPTIONS = {
     "Batch": ("spin", 8, 1, 64),
     "CPuct": ("string", "1.41", None, None),
     "FPU": ("string", "0.25", None, None),
+    "Greedy": ("check", False, None, None),      # play the policy head's top move, no search
 }
 
 
@@ -165,6 +166,8 @@ class Engine:
         for name, (kind, default, lo, hi) in OPTIONS.items():
             if kind == "spin":
                 self.send(f"option name {name} type spin default {default} min {lo} max {hi}")
+            elif kind == "check":
+                self.send(f"option name {name} type check default {str(default).lower()}")
             else:
                 self.send(f"option name {name} type string default {default}")
         self.send("uciok")
@@ -178,7 +181,12 @@ class Engine:
         name = name.strip()
         for known, (kind, *_rest) in OPTIONS.items():
             if known.lower() == name.lower():
-                self.options[known] = int(value) if kind == "spin" else value.strip()
+                if kind == "spin":
+                    self.options[known] = int(value)
+                elif kind == "check":
+                    self.options[known] = value.strip().lower() == "true"
+                else:
+                    self.options[known] = value.strip()
                 return
         log(f"ignoring unknown option {name}")
 
@@ -281,6 +289,11 @@ class Engine:
         root = self.reuse_or_new_root()
         if not root.expanded:
             evaluate_leaves(self.evaluator, [root])
+        if self.options["Greedy"]:
+            edge = int(root.raw_priors.argmax())
+            self.send(f"info depth 1 score cp {q_to_cp(root.value_mean())} nodes 1 pv {root.moves[edge].uci()}")
+            self.send(f"bestmove {root.moves[edge].uci()}")
+            return
         start_visits = root.visits
         target = start_visits + sims if sims else None
         c_puct = float(self.options["CPuct"])

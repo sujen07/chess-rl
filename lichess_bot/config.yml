@@ -97,8 +97,9 @@ engine:                            # Engine settings.
 
   uci_options:                     # Arbitrary UCI options passed to the engine.
     Move Overhead: 100             # Increase if your bot flags games too often.
-    Nodes: 0                       # Cap MCTS simulations per move (0 = use the clock). Lower = weaker/faster.
+    Nodes: 200                     # Cap MCTS simulations per move (0 = use the clock). Lower = weaker/faster.
     Batch: 8                       # Leaves evaluated per GPU call (virtual loss).
+    Greedy: false                  # Play the policy head's top move with no MCTS (false = search).
 #   go_commands:                   # Additional options to pass to the UCI go command.
 #     nodes: 1                     # Search so many nodes only.
 #     depth: 5                     # Search depth ply only.

@@ -23,6 +23,8 @@ fi
 if command -v uv >/dev/null; then
     uv pip install -q --python "$PY" -r "$HERE/lichess-bot/requirements.txt"
 else
+    # uv-created venvs ship without pip
+    "$PY" -m pip --version >/dev/null 2>&1 || "$PY" -m ensurepip -q
     "$PY" -m pip install -q -r "$HERE/lichess-bot/requirements.txt"
 fi
 
