@@ -1,55 +1,45 @@
+"""Load a flat YAML run config (configs/*.yaml) as argparse defaults."""
+
 from pathlib import Path
 
 import yaml
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "training_config.yaml"
+RL_DIR = Path(__file__).resolve().parent
+CONFIG_DIR = RL_DIR / "configs"
+
+# Relative values for these keys are resolved against reinforcement-learning/.
+PATH_KEYS = (
+    "checkpoint_dir", "resume", "model_out", "replay_path", "data_dir",
+    "plot_path", "init_model", "sl_data_dir", "midgame_fens",
+)
 
 
-def load_training_config(path, section, include_common=True):
-    """Load and merge the common and entry-point-specific YAML settings."""
+def load_config(path):
+    """Return the config's settings; null values mean "use the script default"."""
     config_path = Path(path)
     if not config_path.is_file():
-        raise FileNotFoundError(f"Training config not found: {config_path}")
-
+        raise FileNotFoundError(f"Config not found: {config_path}")
     with config_path.open("r", encoding="utf-8") as config_file:
         config = yaml.safe_load(config_file) or {}
-
     if not isinstance(config, dict):
-        raise ValueError("Training config must contain a YAML mapping")
+        raise ValueError(f"Config must be a flat YAML mapping: {config_path}")
 
-    common = config.get("common", {}) if include_common else {}
-    specific = config.get(section, {})
-    if not isinstance(common, dict) or not isinstance(specific, dict):
-        raise ValueError("'common' and entry-point sections must be YAML mappings")
+    settings = {key: value for key, value in config.items() if value is not None}
+    for key in PATH_KEYS:
+        if key in settings and not Path(settings[key]).is_absolute():
+            settings[key] = str(RL_DIR / settings[key])
+    return settings
 
-    structured = {}
-    for name in ("model", "optimizer", "replay", "checkpoint", "runtime"):
-        values = config.get(name, {})
-        if not isinstance(values, dict):
-            raise ValueError(f"'{name}' must be a YAML mapping")
-        structured.update(values)
 
-    # Null values mean "use the script's automatic/default value".
-    merged = {
-        key: value
-        for key, value in {**structured, **common, **specific}.items()
-        if value is not None
-    }
-    for key in (
-        "checkpoint_dir",
-        "resume",
-        "model_out",
-        "replay_path",
-        "data_dir",
-        "plot_path",
-        "init_model",
-        "sl_data_dir",
-        "midgame_fens",
-    ):
-        if key in merged:
-            value = Path(merged[key])
-            if not value.is_absolute():
-                value = config_path.resolve().parent / value
-            merged[key] = str(value)
-    return merged
+def apply_config(parser, config_path):
+    """Use the config's settings as defaults for `parser`; CLI flags still win."""
+    try:
+        settings = load_config(config_path)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    valid = {action.dest for action in parser._actions}
+    unknown = sorted(set(settings) - valid)
+    if unknown:
+        parser.error(f"unknown keys in {config_path}: {', '.join(unknown)}")
+    parser.set_defaults(**settings)

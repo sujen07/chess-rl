@@ -1,0 +1,6 @@
+== MCTS arena: edited vs original, 100 pairs, 200 sims ==
+candidate score=0.500 (100.0/200) | elo=+0 95% CI [-5, +5] | avg_plies=108.4
+terminations: CHECKMATE=158, THREEFOLD_REPETITION=27, STALEMATE=7, INSUFFICIENT_MATERIAL=8
+== Greedy policy head: edited vs original, 100 pairs ==
+candidate score=0.500 (100.0/200) | elo=+0 95% CI [+0, +0] | avg_plies=80.0
+terminations: THREEFOLD_REPETITION=36, CHECKMATE=144, INSUFFICIENT_MATERIAL=4, STALEMATE=16

@@ -1,0 +1,27 @@
+# Supervised warm start on Lichess games (train_supervised.py).
+# The baseline net used by v4-v6. Paths are relative to reinforcement-learning/.
+
+# Packed shards from prepare_lichess_dataset.py.
+data_dir: data/lichess_sl
+# Null loads every shard; ~350 bytes of RAM per position.
+max_positions: null
+num_epochs: 4
+val_positions: 100000
+train_batch_size: 1024
+value_coef: 1.0
+lr: 0.001
+min_lr: 0.00001
+warmup_steps: 2000
+weight_decay: 0.0001
+seed: 2026
+
+# Model: 128 channels x 10 residual blocks.
+channels: 128
+num_blocks: 10
+value_head_channels: 32
+value_hidden: 256
+
+checkpoint_dir: runs/sl
+checkpoint_keep: 5
+plot_path: runs/sl/loss_curve.png
+model_out: models/chess_sl_model.pt

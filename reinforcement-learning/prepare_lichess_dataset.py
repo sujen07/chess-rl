@@ -497,7 +497,7 @@ def main():
     print(f"Done. accepted_games={accepted:,} positions={positions:,}")
     print(f"Shards: {len(written_shards)} under {args.out_dir}")
     print(f"Manifest: {manifest_path}")
-    print("Next: python train_supervised.py, then multiprocess_train_v2.py.")
+    print("Next: python train_supervised.py, then selfplay.py.")
 
 
 if __name__ == "__main__":

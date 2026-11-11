@@ -14,13 +14,14 @@ from fast_mcts import (
     Node,
     absolute_codes,
     advance,
+    completed_q_target,
     is_game_over,
     mcts_search_batch,
     policy_target,
     training_repetition_exclusions,
 )
 from model import PolicyNetwork
-from multiprocess_train_v3 import pack_game, self_play_loop, train_step
+from selfplay import pack_game, self_play_loop, train_step
 from packed_replay import PackedReplay, soft_policy_loss
 from sl_dataset import _absolute_codes, decode_planes
 
@@ -106,6 +107,21 @@ class FastMctsTests(unittest.TestCase):
         self.assertEqual(best, chess.Move.from_uci("a1a8"))
         self.assertGreater(root.value_mean(), 0.5)
 
+    def test_completed_q_target_prefers_mate_and_skips_exclusions(self):
+        board = chess.Board("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1")
+        root = mcts_search_batch(zero_evaluator, [board], num_simulations=300)[0]
+        mate = root.moves.index(chess.Move.from_uci("a1a8"))
+        idx, prob = completed_q_target(root)
+        self.assertEqual(len(idx), len(root.moves))
+        self.assertAlmostEqual(float(prob.sum()), 1.0, places=5)
+        self.assertTrue(np.all(prob > 0))  # unvisited moves keep some mass
+        self.assertEqual(int(idx[np.argmax(prob)]), int(root.indices[mate]))
+        _, visit_prob = policy_target(root)
+        self.assertGreater(prob.max(), visit_prob.max())
+        idx, prob = completed_q_target(root, {mate})
+        self.assertNotIn(int(root.indices[mate]), idx.tolist())
+        self.assertAlmostEqual(float(prob.sum()), 1.0, places=5)
+
     def test_tree_reuse_keeps_stats_and_history(self):
         board = chess.Board()
         root = mcts_search_batch(zero_evaluator, [board], num_simulations=200)[0]
@@ -164,6 +180,7 @@ class SelfPlayPipelineTests(unittest.TestCase):
             resign_consecutive=2, resign_min_ply=4, resign_playthrough=0.5,
             avoid_training_repetitions=True, repetition_value_threshold=-0.25,
             q_weight=0.5, midgame_fens=[], midgame_prob=0.0,
+            policy_target="visits", gumbel_c_visit=50.0, gumbel_c_scale=0.1,
         )
         settings.update(overrides)
         return settings
@@ -199,6 +216,14 @@ class SelfPlayPipelineTests(unittest.TestCase):
                 self.assertAlmostEqual(float(prob.sum()), 1.0, places=5)
             self.assertIn(game["result"], ("1-0", "0-1", "1/2-1/2"))
             self.assertGreater(game["search_visits"], 0)
+
+    def test_self_play_completed_q_targets(self):
+        games = self.play(3, policy_target="completed_q")
+        self.assertTrue(any(len(g["value"]) for g in games))
+        for game in games:
+            for legal, idx, prob in zip(game["legal"], game["pi_idx"], game["pi_prob"]):
+                self.assertTrue(set(idx.tolist()) <= set(legal.tolist()))
+                self.assertAlmostEqual(float(prob.sum()), 1.0, places=5)
 
     def test_resignation_ends_game(self):
         values = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9}

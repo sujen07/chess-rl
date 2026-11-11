@@ -1,6 +1,8 @@
-"""Multiprocess self-play RL, v3: fast search and sample-efficient targets.
+"""Multiprocess self-play RL with MCTS (the trainer for v5-v8).
 
-Changes from v2:
+    python selfplay.py --config configs/selfplay_v8.yaml
+
+Design (vs. the original v1-v4 trainers, tag `legacy-pipelines`):
   * fast_mcts: bitboard encoding, lazy children, tree reuse between moves.
   * Each worker keeps `games_per_worker` games in flight and refills a slot
     as soon as its game ends, so GPU batches stay large.
@@ -14,6 +16,8 @@ Changes from v2:
     anchor the policy against drift.
   * Packed replay ring buffer decoded on the GPU; training is driven by a
     sample-reuse ratio instead of a fixed number of steps per round.
+  * policy_target: completed_q (v8) trains on Gumbel MuZero's improved policy
+    from completed Q-values instead of visit counts.
 """
 
 import argparse
@@ -35,6 +39,7 @@ from fast_mcts import (
     Node,
     add_dirichlet_noise,
     advance,
+    completed_q_target,
     evaluate_leaves,
     evaluate_packed,
     gather_leaf,
@@ -44,10 +49,9 @@ from fast_mcts import (
     training_repetition_exclusions,
 )
 from model import PolicyNetwork, checkpoint_model_config
-from multiprocess_train_v2 import load_midgame_fens
 from packed_replay import PackedReplay, soft_policy_loss
-from train import load_checkpoint, save_checkpoint
-from training_config import DEFAULT_CONFIG_PATH, load_training_config
+from checkpoint import load_checkpoint, save_checkpoint
+from training_config import CONFIG_DIR, apply_config
 from training_runtime import (
     amp_context,
     apply_lr_schedule,
@@ -56,6 +60,18 @@ from training_runtime import (
 )
 
 RL_DIR = Path(__file__).resolve().parent
+
+
+def load_midgame_fens(path):
+    """Load a FEN pool written by prepare_midgame_fens.py."""
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Midgame FEN pool not found: {path}")
+    state = torch.load(path, map_location="cpu", weights_only=False)
+    fens = state.get("fens", []) if isinstance(state, dict) else state
+    if not isinstance(fens, (list, tuple)) or not fens:
+        raise ValueError(f"No FENs found in {path}")
+    return list(fens)
 
 
 # --------------------------------------------------------------------------
@@ -161,7 +177,12 @@ def self_play_loop(evaluator, settings, claim_game, emit_game, stop_event, rng):
             if s["avoid_training_repetitions"] else set()
         )
         if game.full:
-            pi_idx, pi_prob = policy_target(root, excluded)
+            if s["policy_target"] == "completed_q":
+                pi_idx, pi_prob = completed_q_target(
+                    root, excluded, s["gumbel_c_visit"], s["gumbel_c_scale"]
+                )
+            else:
+                pi_idx, pi_prob = policy_target(root, excluded)
             game.samples.append(
                 (root.pieces, root.aux, root.indices.astype(np.int16),
                  pi_idx, pi_prob, q, mover)
@@ -438,7 +459,7 @@ def train(args, policy, optimizer, scaler, device, start_games, results_window):
             "resign_threshold", "resign_consecutive", "resign_min_ply",
             "resign_playthrough", "avoid_training_repetitions",
             "repetition_value_threshold", "q_weight", "midgame_fens",
-            "midgame_prob",
+            "midgame_prob", "policy_target", "gumbel_c_visit", "gumbel_c_scale",
         )
     }
 
@@ -615,11 +636,14 @@ def train(args, policy, optimizer, scaler, device, start_games, results_window):
 
 def parse_args():
     config_parser = argparse.ArgumentParser(add_help=False)
-    config_parser.add_argument("--config", type=str, default=str(DEFAULT_CONFIG_PATH))
+    config_parser.add_argument(
+        "--config", type=str, default=str(CONFIG_DIR / "selfplay_v8.yaml"),
+        help="run config whose values become the defaults (CLI flags still win)",
+    )
     config_args, _ = config_parser.parse_known_args()
 
     p = argparse.ArgumentParser(
-        description="Fast multiprocess self-play RL (v3).", parents=[config_parser]
+        description="Multiprocess self-play RL with MCTS.", parents=[config_parser]
     )
     add = p.add_argument
     # Model / optimizer.
@@ -658,6 +682,10 @@ def parse_args():
     add("--inference-max-wait-ms", type=float, default=2.0)
     # Training.
     add("--q-weight", type=float, default=0.5)
+    add("--policy-target", choices=("visits", "completed_q"), default="visits",
+        help="visits: temperature-1 visit counts; completed_q: Gumbel MuZero improved policy")
+    add("--gumbel-c-visit", type=float, default=50.0)
+    add("--gumbel-c-scale", type=float, default=0.1)
     add("--value-coef", type=float, default=1.0)
     add("--train-batch-size", type=int, default=1024)
     add("--sample-reuse", type=float, default=4.0,
@@ -669,27 +697,19 @@ def parse_args():
     add("--sl-data-dir", type=str, default=str(RL_DIR / "data" / "lichess_sl"))
     add("--sl-mix-positions", type=int, default=3_000_000)
     # Bookkeeping.
-    add("--checkpoint-dir", type=str, default=str(RL_DIR / "checkpoints_v5"))
+    add("--checkpoint-dir", type=str, default=str(RL_DIR / "runs" / "selfplay"))
     add("--checkpoint-every", type=int, default=500, help="games")
     add("--checkpoint-keep", type=int, default=20)
     add("--replay-save-every", type=int, default=2000, help="games")
     add("--replay-path", type=str, default=None)
     add("--resume", type=str, default=None)
     add("--init-model", type=str, default=None)
-    add("--model-out", type=str, default=str(RL_DIR / "chess_rl_model_v5.pt"))
+    add("--model-out", type=str, default=str(RL_DIR / "models" / "chess_rl_model.pt"))
     add("--log-every-seconds", type=float, default=60.0)
     add("--seed", type=int, default=0)
     add("--disable-amp", action="store_true")
 
-    try:
-        defaults = load_training_config(config_args.config, "selfplay_v3", include_common=False)
-    except (FileNotFoundError, OSError, ValueError) as exc:
-        p.error(str(exc))
-    valid = {a.dest for a in p._actions}
-    unknown = sorted(set(defaults) - valid)
-    if unknown:
-        p.error(f"unknown selfplay_v3 config keys: {', '.join(unknown)}")
-    p.set_defaults(**defaults)
+    apply_config(p, config_args.config)
     args = p.parse_args()
 
     if args.num_workers < 1 or args.games_per_worker < 1:

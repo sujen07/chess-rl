@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Supervised warm-start from packed Lichess shards (Chess RL v2).
+"""Supervised warm-start from packed Lichess shards.
 
 Reads shard_*.npz files from prepare_lichess_dataset.py, trains the policy head
 on the moves strong players chose and the value head on eval-blended outcomes,
-and writes a weights file that multiprocess_train_v2.py loads via --init-model.
+and writes a weights file that selfplay.py loads via --init-model.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ import torch
 
 from model import ARCHITECTURES, PolicyNetwork
 from sl_dataset import PackedDataset, packed_loss
-from train import load_checkpoint, save_checkpoint
-from training_config import DEFAULT_CONFIG_PATH, load_training_config
+from checkpoint import load_checkpoint, save_checkpoint
+from training_config import CONFIG_DIR, apply_config
 from training_runtime import (
     amp_context,
     apply_lr_schedule,
@@ -228,8 +228,8 @@ def parse_args():
     config_parser.add_argument(
         "--config",
         type=str,
-        default=str(DEFAULT_CONFIG_PATH),
-        help="YAML training configuration file",
+        default=str(CONFIG_DIR / "supervised.yaml"),
+        help="run config whose values become the defaults (CLI flags still win)",
     )
     config_args, _ = config_parser.parse_known_args()
 
@@ -280,36 +280,19 @@ def parse_args():
     parser.add_argument("--disable-amp", action="store_true")
     parser.add_argument("--log-every", type=int, default=500)
     parser.add_argument(
-        "--checkpoint-dir", type=str, default=str(RL_DIR / "checkpoints_sl")
+        "--checkpoint-dir", type=str, default=str(RL_DIR / "runs" / "sl")
     )
     parser.add_argument("--checkpoint-keep", type=int, default=5)
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument(
-        "--model-out", type=str, default=str(RL_DIR / "chess_sl_model.pt")
+        "--model-out", type=str, default=str(RL_DIR / "models" / "chess_sl_model.pt")
     )
     parser.add_argument(
         "--plot-path",
         type=str,
-        default=str(RL_DIR / "checkpoints_sl" / "loss_curve.png"),
+        default=str(RL_DIR / "runs" / "sl" / "loss_curve.png"),
     )
-    # Keys present in shared YAML sections but unused by supervised training.
-    for unused in ("--warmup-games", "--checkpoint-every", "--buffer-capacity",
-                   "--min-buffer-size", "--replay-save-every"):
-        parser.add_argument(unused, type=int, default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--replay-path", type=str, default=None, help=argparse.SUPPRESS)
-
-    try:
-        config_defaults = load_training_config(
-            config_args.config, "supervised", include_common=False
-        )
-    except (FileNotFoundError, OSError, ValueError) as exc:
-        parser.error(str(exc))
-
-    valid_keys = {action.dest for action in parser._actions}
-    unknown_keys = sorted(set(config_defaults) - valid_keys)
-    if unknown_keys:
-        parser.error(f"unknown supervised config keys: {', '.join(unknown_keys)}")
-    parser.set_defaults(**config_defaults)
+    apply_config(parser, config_args.config)
     args = parser.parse_args()
 
     if args.num_epochs < 1:

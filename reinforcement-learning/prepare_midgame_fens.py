@@ -248,7 +248,7 @@ def main():
     print(f"Done. accepted_games={accepted:,} fens={len(fens):,}")
     print(f"Wrote {args.out}")
     print(
-        "Next: pass this file to multiprocess_train_v2.py via "
+        "Next: pass this file to selfplay.py via "
         "--midgame-fens and --midgame-prob."
     )
 

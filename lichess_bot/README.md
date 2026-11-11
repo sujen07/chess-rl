@@ -1,6 +1,6 @@
 # Lichess bot
 
-Plays the RL model (`reinforcement-learning/chess_rl_model_v5.pt`) on Lichess. The bot uses
+Plays the RL model (`reinforcement-learning/models/chess_rl_model_v7_se.pt`) on Lichess. The bot uses
 [lichess-bot](https://github.com/lichess-bot-devs/lichess-bot) to connect to Lichess, and
 `reinforcement-learning/uci_engine.py` exposes the policy network and MCTS as a UCI engine.
 
@@ -47,7 +47,7 @@ To have the bot challenge other bots on its own, set `matchmaking.allow_matchmak
 | | `Batch` | Leaves per GPU call. 8 gives ~1300 sims/s on an RTX 2060; 1 gives ~230. |
 | | `Move Overhead` | ms reserved for network lag. Raise it if the bot loses on time. |
 | `config.yml` → `challenge` | `time_controls`, `max_base`, `concurrency`, `modes` | Which challenges the bot accepts. |
-| env | `MODEL_PATH=/path/to/ckpt.pt` | Play a different checkpoint (e.g. a newer `checkpoints_v5/ckpt_*.pt`). |
+| env | `MODEL_PATH=/path/to/ckpt.pt` | Play a different checkpoint (e.g. a `runs/v7_se/ckpt_*.pt`). |
 
 ## Testing locally without Lichess
 
