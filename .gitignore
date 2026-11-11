@@ -2,13 +2,18 @@
 __pycache__/
 .venv/
 
+# Training outputs: checkpoints, logs, replay buffers, eval PGNs and weights.
+# Final weights are published separately (see README).
+reinforcement-learning/runs/
+reinforcement-learning/models/
+reinforcement-learning/data/
 *.log
-*.json
-*.csv
 *.pt
 *.npz
-
-data/
+*.csv
+*.json
+# Exact resolved settings of every past run are small and worth keeping.
+!reinforcement-learning/configs/history/*.json
 
 .DS_Store
 # Lichess bot: upstream checkout, token and game records

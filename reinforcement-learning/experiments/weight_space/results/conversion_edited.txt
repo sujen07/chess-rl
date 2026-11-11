@@ -1,0 +1,7 @@
+experiments/weight_space/edited.pt  sims=200  max_plies=120
+  KQK   mated  40/40  avg plies to mate   18.3  failures {}
+  KRK   mated  40/40  avg plies to mate   33.9  failures {}
+  KQPK  mated  40/40  avg plies to mate   13.4  failures {}
+  KRPK  mated  40/40  avg plies to mate   21.4  failures {}
+  KRRK  mated  40/40  avg plies to mate   17.6  failures {}
+  TOTAL conversion 200/200

@@ -1,0 +1,28 @@
+{"pass": 1, "time": "2026-11-09 12:13:53", "which": "original", "batch": 512, "activations": [], "purpose": "baseline diagnostics on practice set"}
+{"pass": 2, "time": "2026-11-09 12:13:55", "which": "original", "batch": 512, "activations": [], "purpose": "baseline diagnostics on practice set"}
+{"pass": 3, "time": "2026-11-09 12:13:56", "which": "original", "batch": 512, "activations": [], "purpose": "baseline diagnostics on practice set"}
+{"pass": 4, "time": "2026-11-09 12:13:58", "which": "original", "batch": 512, "activations": [], "purpose": "baseline diagnostics on practice set"}
+{"pass": 5, "time": "2026-11-09 12:14:00", "which": "original", "batch": 512, "activations": [], "purpose": "baseline diagnostics on practice set"}
+{"pass": 6, "time": "2026-11-09 12:14:02", "which": "original", "batch": 512, "activations": [], "purpose": "baseline diagnostics on practice set"}
+{"pass": 7, "time": "2026-11-09 12:14:46", "which": "original", "batch": 15, "activations": [], "purpose": "stalemate-trap positions + children"}
+{"pass": 8, "time": "2026-11-09 12:16:46", "which": "original", "batch": 512, "activations": ["value_fc.1", "blocks.9"], "purpose": "KQK/KRK value-head shape + value hidden & trunk activations"}
+{"pass": 9, "time": "2026-11-09 12:17:25", "which": "original", "batch": 512, "activations": ["value_conv.2", "value_fc.1"], "purpose": "won endgames: value_conv + value hidden activations"}
+{"pass": 10, "time": "2026-11-09 12:17:27", "which": "original", "batch": 512, "activations": ["value_conv.2", "value_fc.1"], "purpose": "practice rows: value_conv + value hidden activations"}
+{"pass": 11, "time": "2026-11-09 12:20:00", "which": "edited", "batch": 512, "activations": [], "purpose": "verify v1 on fresh endgames seed 3 (incl. unseen KBBK/KRRK/KQRK/KBNK)"}
+{"pass": 12, "time": "2026-11-09 12:20:16", "which": "original", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 13, "time": "2026-11-09 12:20:17", "which": "original", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 14, "time": "2026-11-09 12:20:19", "which": "edited", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 15, "time": "2026-11-09 12:20:20", "which": "edited", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 16, "time": "2026-11-09 12:23:18", "which": "original", "batch": 510, "activations": ["value_conv.2"], "purpose": "hard negatives (drawn/unclear endgames) for detector refit"}
+{"pass": 17, "time": "2026-11-09 12:23:18", "which": "original", "batch": 25, "activations": ["value_conv.2"], "purpose": "vconv for rows the v1 circuit touched"}
+{"pass": 18, "time": "2026-11-09 12:24:15", "which": "edited", "batch": 512, "activations": [], "purpose": "verify v1 on fresh endgames seed 4 (incl. unseen KBBK/KRRK/KQRK/KBNK)"}
+{"pass": 19, "time": "2026-11-09 12:24:18", "which": "original", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 20, "time": "2026-11-09 12:24:20", "which": "original", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 21, "time": "2026-11-09 12:24:21", "which": "edited", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 22, "time": "2026-11-09 12:24:23", "which": "edited", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 23, "time": "2026-11-09 12:24:47", "which": "edited", "batch": 512, "activations": [], "purpose": "verify v1 on fresh endgames seed 6 (incl. unseen KBBK/KRRK/KQRK/KBNK)"}
+{"pass": 24, "time": "2026-11-09 12:25:24", "which": "edited", "batch": 512, "activations": [], "purpose": "verify v1 on fresh endgames seed 7 (incl. unseen KBBK/KRRK/KQRK/KBNK)"}
+{"pass": 25, "time": "2026-11-09 12:25:28", "which": "original", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 26, "time": "2026-11-09 12:25:30", "which": "original", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 27, "time": "2026-11-09 12:25:31", "which": "edited", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}
+{"pass": 28, "time": "2026-11-09 12:25:33", "which": "edited", "batch": 512, "activations": [], "purpose": "fresh split non-regression check"}

@@ -1,0 +1,70 @@
+# v8: a fresh run from the SE supervised net that changes only how much each
+# game teaches the net (diff against selfplay_v7.yaml). The v7 buffer showed
+# search disagreeing with the policy's top move 37% of the time after 2.77M
+# samples, so training was absorbing search too slowly. Paths are relative to
+# reinforcement-learning/. Earlier runs' exact settings: configs/history/.
+
+# Optimizer. The architecture (incl. SE) comes from init_model's stored config.
+# Higher LR now that the human-move anchor no longer fights the RL targets
+# (v6's 1.5e-4 regression ran with sl_mix 0.2).
+lr: 0.00025
+min_lr: 0.000025
+warmup_games: 1000
+lr_schedule_start: 0
+weight_decay: 0.0001
+episodes: 100000
+seed: 2026
+disable_amp: false
+
+# Self-play (unchanged from v7). num_workers null = one per CPU core; the coordinator mostly
+# waits on the GPU, and workers idle while their batch is being evaluated.
+num_workers: null
+games_per_worker: 48
+# Playout cap randomization: full searches become training samples.
+# Stronger search targets (v5: 400).
+full_simulations: 600
+fast_simulations: 80
+full_search_prob: 0.25
+c_puct: 1.41
+fpu_reduction: 0.25
+temp_threshold: 30
+dirichlet_alpha: 0.3
+dirichlet_eps: 0.25
+max_moves: 240
+tree_reuse: true
+resign_threshold: -0.9
+resign_consecutive: 3
+resign_min_ply: 20
+resign_playthrough: 0.1
+avoid_training_repetitions: true
+# A clearly losing side may still learn to claim a repetition draw.
+repetition_value_threshold: -0.25
+midgame_fens: null
+midgame_prob: 0.0
+
+# Training. Policy targets come from completed Q-values (Gumbel MuZero)
+# rather than visit counts: they use the un-noised prior and every legal
+# move's value, so they carry more of what the search found per sample.
+policy_target: completed_q
+gumbel_c_visit: 50.0
+gumbel_c_scale: 0.1
+q_weight: 0.5
+value_coef: 1.0
+train_batch_size: 1024
+sample_reuse: 4.0
+buffer_capacity: 300000
+min_buffer_size: 20000
+# A light anchor only (v7: 0.3); one-hot human moves pulled against search.
+sl_mix_fraction: 0.05
+sl_data_dir: data/lichess_sl
+sl_mix_positions: 3000000
+
+# Bookkeeping (games, not rounds).
+checkpoint_dir: runs/v8_se
+checkpoint_every: 500
+checkpoint_keep: 20
+replay_save_every: 2000
+replay_path: runs/v8_se/replay_buffer.npz
+resume: runs/v8_se/latest.pt
+init_model: models/chess_sl_model_se.pt
+model_out: models/chess_rl_model_v8_se.pt

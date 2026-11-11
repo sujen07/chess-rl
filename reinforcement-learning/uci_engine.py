@@ -5,7 +5,7 @@ the model. Search runs in a background thread so `stop` works, the tree is
 reused between moves, and leaves are evaluated in small batches using
 virtual loss to keep the GPU busy.
 
-    python uci_engine.py [--model-path chess_rl_model_v5.pt]
+    python uci_engine.py [--model-path models/chess_rl_model_v5.pt]
 """
 import argparse
 import math
@@ -389,7 +389,7 @@ class Engine:
 
 def main():
     parser = argparse.ArgumentParser(description="UCI engine for the RL chess policy.")
-    parser.add_argument("--model-path", default=str(RL_DIR / "chess_rl_model_v5.pt"))
+    parser.add_argument("--model-path", default=str(RL_DIR / "models" / "chess_rl_model_v5.pt"))
     args = parser.parse_args()
     Engine(args.model_path).loop()
 

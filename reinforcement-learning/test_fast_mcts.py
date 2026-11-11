@@ -21,7 +21,7 @@ from fast_mcts import (
     training_repetition_exclusions,
 )
 from model import PolicyNetwork
-from multiprocess_train_v3 import pack_game, self_play_loop, train_step
+from selfplay import pack_game, self_play_loop, train_step
 from packed_replay import PackedReplay, soft_policy_loss
 from sl_dataset import _absolute_codes, decode_planes
 

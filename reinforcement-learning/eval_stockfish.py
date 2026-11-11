@@ -122,12 +122,15 @@ def main():
     p.add_argument("--max-plies", type=int, default=300)
     p.add_argument("--c-puct", type=float, default=1.41)
     p.add_argument("--fpu-reduction", type=float, default=0.25)
-    p.add_argument("--pgn", default="stockfish_eval.pgn")
+    p.add_argument(
+        "--pgn", default=str(Path(__file__).resolve().parent / "runs" / "eval" / "stockfish_eval.pgn")
+    )
     args = p.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     evaluator = LocalEvaluator(load_policy(args.model, device), device)
     all_results = []
+    Path(args.pgn).parent.mkdir(parents=True, exist_ok=True)
     with open(args.pgn, "w") as pgn:
         for elo in args.elos:
             scores, games = play_level(evaluator, args.stockfish, elo, args.games, args.sims,

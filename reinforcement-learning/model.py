@@ -8,8 +8,6 @@ from chess_environment import (
     INPUT_CHANNELS,
     MOVE_PLANES,
     POLICY_SIZE,
-    board_to_tensor,
-    legal_move_mask,
 )
 
 
@@ -229,48 +227,6 @@ class PolicyNetwork(nn.Module):
         v = self.value_conv(x)
         value = torch.tanh(self.value_fc(v.flatten(1))).squeeze(-1)
         return logits, value
-
-    def alphazero_loss(
-        self,
-        positions,
-        mcts_policies,
-        outcomes,
-        value_weights=None,
-        value_coef=1.0,
-    ):
-        device = next(self.parameters()).device
-
-        x = torch.cat([board_to_tensor(position) for position in positions]).to(device)
-        logits_batch, values = self.forward(x)
-
-        policy_losses = []
-        for i, (position, target) in enumerate(zip(positions, mcts_policies)):
-            board = position.board() if hasattr(position, "board") else position
-            mask = legal_move_mask(board, device=logits_batch.device, dtype=logits_batch.dtype)
-            masked_logits = logits_batch[i].masked_fill(mask == 0, float("-inf"))
-            log_probs_i = F.log_softmax(masked_logits, dim=0)
-            indices = target.indices.to(device=device)
-            probabilities = target.probabilities.to(
-                device=device, dtype=log_probs_i.dtype
-            )
-            policy_losses.append(-(probabilities * log_probs_i[indices]).sum())
-
-        policy_loss = torch.stack(policy_losses).mean()
-        values = values.reshape(-1)
-        outcomes = outcomes.to(device=device, dtype=values.dtype)
-        if value_weights is None:
-            value_weights = torch.ones_like(outcomes)
-        else:
-            value_weights = value_weights.to(device=device, dtype=values.dtype)
-        squared_errors = (values - outcomes).square() * value_weights
-        weight_sum = value_weights.sum()
-        value_loss = (
-            squared_errors.sum() / weight_sum.clamp_min(1.0)
-            if weight_sum.item() > 0
-            else values.sum() * 0.0
-        )
-        total_loss = policy_loss + value_coef * value_loss
-        return total_loss, policy_loss, value_loss
 
     def checkpoint_metadata(self):
         return {

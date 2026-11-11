@@ -1,8 +1,10 @@
-pygame
-PyYAML
-numpy
-python-chess
-torch
-zstandard
-certifi
-matplotlib
+# Tested with Python 3.12 on Linux (RTX 2060, CUDA build of torch).
+torch==2.14.1
+numpy==2.5.4
+chess==1.11.2
+PyYAML==6.0.3
+zstandard==0.25.0
+certifi==2026.7.22
+matplotlib==3.11.2
+# Only for the pygame board UI (play.py).
+pygame==2.6.1

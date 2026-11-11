@@ -164,7 +164,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Play chess against the trained RL policy.")
     parser.add_argument("--model-path", type=str,
-                         default=str(RL_DIR / "chess_rl_model_v5.pt"),
+                         default=str(RL_DIR / "models" / "chess_rl_model_v5.pt"),
                          help="checkpoint (.pt) or raw state_dict to load")
     parser.add_argument("--sims", type=int, default=800,
                         help="MCTS simulations per agent move; 0 plays the greedy policy head")
